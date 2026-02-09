@@ -57,7 +57,7 @@ curl -X POST http://localhost/v1/transcribe \
   -H "Authorization: Bearer YOUR_JWT" \
   -H "Content-Type: application/json" \
   -d '{
-    "orgId": "ORG123",
+    "workspaceId": "WORKSPACE123",
     "source": "instagram",
     "reelUrl": "https://www.instagram.com/reel/XXXX/",
     "postedAt": null,
@@ -65,10 +65,10 @@ curl -X POST http://localhost/v1/transcribe \
   }'
 ```
 
-Check job status (orgId is required for lookup):
+Check job status (workspaceId is required for lookup):
 
 ```bash
-curl "http://localhost/v1/jobs/JOB_ID?orgId=ORG123" \
+curl "http://localhost/v1/jobs/JOB_ID?workspaceId=WORKSPACE123" \
   -H "Authorization: Bearer YOUR_JWT"
 ```
 

@@ -12,22 +12,22 @@ from app.jobs.enqueue import enqueue_job
 from app.jobs.lease import acquire_lease
 from app.services.downloader import DownloadError, download_instagram
 from app.services.ffmpeg import FfmpegError, extract_audio
-from app.services.firestore import org_job_ref, org_reel_ref
+from app.services.firestore import workspace_job_ref, workspace_reel_ref
 from app.services.whisper import WhisperError, transcribe_audio
 from app.utils.logging import get_logger, setup_logging
 from app.utils.time import utc_now
 
 
-def process_job(job_id: str, org_id: str) -> None:
+def process_job(job_id: str, workspace_id: str) -> None:
     settings = get_settings()
     logger = get_logger("worker", job_id=job_id)
 
-    job_ref = org_job_ref(org_id, job_id)
+    job_ref = workspace_job_ref(workspace_id, job_id)
     lease_ok, info = acquire_lease(job_ref)
     if not lease_ok:
         status = info.get("status")
         if status == "leased":
-            enqueue_job(job_id, org_id)
+            enqueue_job(job_id, workspace_id)
         return
 
     job_snapshot = job_ref.get()
@@ -41,7 +41,7 @@ def process_job(job_id: str, org_id: str) -> None:
     source = job_data.get("source", "instagram")
     attempts = int(job_data.get("attempts", 1))
 
-    reel_ref = org_reel_ref(org_id, reel_id)
+    reel_ref = workspace_reel_ref(workspace_id, reel_id)
     reel_snapshot = reel_ref.get()
     reel_data = reel_snapshot.to_dict() if reel_snapshot.exists else {}
 
@@ -104,7 +104,7 @@ def process_job(job_id: str, org_id: str) -> None:
             }
         )
         if attempts < settings.MAX_ATTEMPTS:
-            enqueue_job(job_id, org_id)
+            enqueue_job(job_id, workspace_id)
     finally:
         for path in (video_path, audio_path):
             try:

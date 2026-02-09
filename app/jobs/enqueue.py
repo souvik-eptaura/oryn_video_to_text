@@ -13,6 +13,6 @@ def get_queue() -> Queue:
     return Queue(name=QUEUE_NAME, connection=redis_conn)
 
 
-def enqueue_job(job_id: str, org_id: str) -> None:
+def enqueue_job(job_id: str, workspace_id: str) -> None:
     queue = get_queue()
-    queue.enqueue("app.workers.worker.process_job", job_id, org_id)
+    queue.enqueue("app.workers.worker.process_job", job_id, workspace_id)

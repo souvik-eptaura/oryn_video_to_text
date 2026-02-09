@@ -5,7 +5,7 @@ API_URL = os.getenv("API_URL", "http://localhost")
 TOKEN = os.getenv("TOKEN", "")
 
 payload = {
-    "orgId": "ORG123",
+    "workspaceId": "WORKSPACE123",
     "source": "instagram",
     "reelUrl": "https://www.instagram.com/reel/XXXX/",
     "postedAt": None,

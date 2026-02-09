@@ -30,23 +30,23 @@ def get_firestore_client() -> firestore.Client:
     return firestore.client(app=_app)
 
 
-def org_reel_ref(org_id: str, reel_id: str):
+def workspace_reel_ref(workspace_id: str, reel_id: str):
     settings = get_settings()
     db = get_firestore_client()
     return (
         db.collection(settings.FIRESTORE_ROOT)
-        .document(org_id)
+        .document(workspace_id)
         .collection(settings.FIRESTORE_REELS_COLLECTION)
         .document(reel_id)
     )
 
 
-def org_job_ref(org_id: str, job_id: str):
+def workspace_job_ref(workspace_id: str, job_id: str):
     settings = get_settings()
     db = get_firestore_client()
     return (
         db.collection(settings.FIRESTORE_ROOT)
-        .document(org_id)
+        .document(workspace_id)
         .collection(settings.FIRESTORE_JOBS_COLLECTION)
         .document(job_id)
     )

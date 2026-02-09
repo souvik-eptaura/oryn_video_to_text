@@ -12,8 +12,8 @@ from app.jobs.models import EnqueueResponse, JobStatusResponse, TranscribeReques
 from app.services.firestore import (
     build_job_doc,
     build_reel_doc,
-    org_job_ref,
-    org_reel_ref,
+    workspace_job_ref,
+    workspace_reel_ref,
 )
 from app.services.hashing import sha256_hex
 
@@ -30,17 +30,17 @@ def transcribe(
     payload: TranscribeRequest,
     _claims: dict = Depends(require_firebase_user),
 ):
-    org_id = payload.orgId.strip()
-    if not org_id:
-        raise HTTPException(status_code=400, detail="orgId required")
+    workspace_id = payload.workspaceId.strip()
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="workspaceId required")
     if not payload.reelUrl.startswith("http"):
         raise HTTPException(status_code=400, detail="Invalid reelUrl")
 
     reel_id = sha256_hex(payload.reelUrl)
     job_id = str(uuid.uuid4())
 
-    reel_ref = org_reel_ref(org_id, reel_id)
-    job_ref = org_job_ref(org_id, job_id)
+    reel_ref = workspace_reel_ref(workspace_id, reel_id)
+    job_ref = workspace_job_ref(workspace_id, job_id)
 
     reel_snapshot = reel_ref.get()
     reel_data = reel_snapshot.to_dict() if reel_snapshot.exists else {}
@@ -50,7 +50,8 @@ def transcribe(
                 {
                     "jobId": job_id,
                     "reelId": reel_id,
-                    "orgId": org_id,
+                    "workspaceId": workspace_id,
+                    "orgId": workspace_id,
                     "status": "completed",
                     "source": payload.source,
                     "reelUrl": payload.reelUrl,
@@ -58,13 +59,16 @@ def transcribe(
             ),
             merge=True,
         )
-        return EnqueueResponse(jobId=job_id, reelId=reel_id, status="completed")
+        return EnqueueResponse(
+            jobId=job_id, reelId=reel_id, workspaceId=workspace_id, status="completed"
+        )
 
     reel_ref.set(
         build_reel_doc(
             {
                 "reelId": reel_id,
-                "orgId": org_id,
+                "workspaceId": workspace_id,
+                "orgId": workspace_id,
                 "source": payload.source,
                 "reelUrl": payload.reelUrl,
                 "postedAt": payload.postedAt,
@@ -81,7 +85,8 @@ def transcribe(
             {
                 "jobId": job_id,
                 "reelId": reel_id,
-                "orgId": org_id,
+                "workspaceId": workspace_id,
+                "orgId": workspace_id,
                 "source": payload.source,
                 "reelUrl": payload.reelUrl,
                 "status": "queued",
@@ -91,24 +96,36 @@ def transcribe(
         merge=True,
     )
 
-    enqueue_job(job_id, org_id)
+    enqueue_job(job_id, workspace_id)
 
-    return EnqueueResponse(jobId=job_id, reelId=reel_id, status="queued")
+    return EnqueueResponse(
+        jobId=job_id, reelId=reel_id, workspaceId=workspace_id, status="queued"
+    )
 
 
 @router.get("/v1/jobs/{job_id}", response_model=JobStatusResponse)
 def job_status(
     job_id: str,
-    org_id: str = Query(..., alias="orgId"),
+    workspace_id: str | None = Query(None, alias="workspaceId"),
+    org_id: str | None = Query(None, alias="orgId"),
     _claims: dict = Depends(require_firebase_user),
 ):
-    if not org_id:
-        raise HTTPException(status_code=400, detail="orgId required")
+    if not workspace_id and not org_id:
+        raise HTTPException(status_code=400, detail="workspaceId or orgId required")
 
-    job_ref = org_job_ref(org_id, job_id)
+    workspace_id = workspace_id or org_id
+    if not workspace_id:
+        raise HTTPException(status_code=400, detail="workspaceId required")
+
+    job_ref = workspace_job_ref(workspace_id, job_id)
     snapshot = job_ref.get()
     if not snapshot.exists:
         raise HTTPException(status_code=404, detail="Job not found")
 
     data = snapshot.to_dict() or {}
-    return JobStatusResponse(jobId=job_id, status=data.get("status", "unknown"), error=data.get("error"))
+    return JobStatusResponse(
+        jobId=job_id,
+        workspaceId=workspace_id,
+        status=data.get("status", "unknown"),
+        error=data.get("error"),
+    )
