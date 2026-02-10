@@ -30,11 +30,19 @@ def get_firestore_client() -> firestore.Client:
     return firestore.client(app=_app)
 
 
+def ensure_workspace_root(workspace_id: str) -> None:
+    db = get_firestore_client()
+    db.collection("workspaces").document(workspace_id).set(
+        {"updatedAt": firestore.SERVER_TIMESTAMP}, merge=True
+    )
+
+
 def workspace_reel_ref(workspace_id: str, reel_id: str):
     settings = get_settings()
     db = get_firestore_client()
+    ensure_workspace_root(workspace_id)
     return (
-        db.collection(settings.FIRESTORE_ROOT)
+        db.collection("workspaces")
         .document(workspace_id)
         .collection(settings.FIRESTORE_REELS_COLLECTION)
         .document(reel_id)
@@ -44,8 +52,9 @@ def workspace_reel_ref(workspace_id: str, reel_id: str):
 def workspace_job_ref(workspace_id: str, job_id: str):
     settings = get_settings()
     db = get_firestore_client()
+    ensure_workspace_root(workspace_id)
     return (
-        db.collection(settings.FIRESTORE_ROOT)
+        db.collection("workspaces")
         .document(workspace_id)
         .collection(settings.FIRESTORE_JOBS_COLLECTION)
         .document(job_id)

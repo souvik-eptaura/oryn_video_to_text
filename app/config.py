@@ -18,7 +18,6 @@ class Settings(BaseSettings):
         default=None, description="Raw service account JSON string"
     )
 
-    FIRESTORE_ROOT: str = Field(default="organizations")
     FIRESTORE_REELS_COLLECTION: str = Field(default="sources_reels")
     FIRESTORE_JOBS_COLLECTION: str = Field(default="source_jobs")
 

@@ -51,7 +51,6 @@ def transcribe(
                     "jobId": job_id,
                     "reelId": reel_id,
                     "workspaceId": workspace_id,
-                    "orgId": workspace_id,
                     "status": "completed",
                     "source": payload.source,
                     "reelUrl": payload.reelUrl,
@@ -68,7 +67,6 @@ def transcribe(
             {
                 "reelId": reel_id,
                 "workspaceId": workspace_id,
-                "orgId": workspace_id,
                 "source": payload.source,
                 "reelUrl": payload.reelUrl,
                 "postedAt": payload.postedAt,
@@ -86,7 +84,6 @@ def transcribe(
                 "jobId": job_id,
                 "reelId": reel_id,
                 "workspaceId": workspace_id,
-                "orgId": workspace_id,
                 "source": payload.source,
                 "reelUrl": payload.reelUrl,
                 "status": "queued",
@@ -106,14 +103,9 @@ def transcribe(
 @router.get("/v1/jobs/{job_id}", response_model=JobStatusResponse)
 def job_status(
     job_id: str,
-    workspace_id: str | None = Query(None, alias="workspaceId"),
-    org_id: str | None = Query(None, alias="orgId"),
+    workspace_id: str = Query(..., alias="workspaceId"),
     _claims: dict = Depends(require_firebase_user),
 ):
-    if not workspace_id and not org_id:
-        raise HTTPException(status_code=400, detail="workspaceId or orgId required")
-
-    workspace_id = workspace_id or org_id
     if not workspace_id:
         raise HTTPException(status_code=400, detail="workspaceId required")
 
