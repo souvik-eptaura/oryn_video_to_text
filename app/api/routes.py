@@ -36,7 +36,9 @@ def transcribe(
     if not payload.reelUrl.startswith("http"):
         raise HTTPException(status_code=400, detail="Invalid reelUrl")
 
-    reel_id = sha256_hex(payload.reelUrl)
+    reel_id = payload.reelId.strip() if payload.reelId else ""
+    if not reel_id:
+        reel_id = sha256_hex(payload.reelUrl)
     job_id = str(uuid.uuid4())
 
     reel_ref = workspace_reel_ref(workspace_id, reel_id)

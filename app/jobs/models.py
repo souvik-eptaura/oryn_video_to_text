@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
@@ -9,6 +9,7 @@ class TranscribeRequest(BaseModel):
     workspaceId: str = Field(..., min_length=1)
     source: str = Field(default="instagram")
     reelUrl: str = Field(..., min_length=8)
+    reelId: Optional[str] = None
     postedAt: Optional[str] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
