@@ -19,6 +19,7 @@ class OpenAIWhisperError(WhisperError):
 
 OPENAI_TRANSCRIBE_URL = "https://api.openai.com/v1/audio/transcriptions"
 OPENAI_MODEL = "whisper-1"
+OPENAI_RESPONSE_FORMAT = "verbose_json"
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 DEFAULT_CHUNK_SECONDS = 120
 
@@ -38,6 +39,29 @@ def _run_ffmpeg(cmd: list[str], timeout_sec: int = 450) -> None:
         raise OpenAIWhisperError(f"ffmpeg failed: {exc.stderr.strip()[:200]}") from exc
 
 
+def _map_openai_segments(segments: Any, *, offset: float = 0.0) -> list[dict]:
+    mapped: list[dict] = []
+    if not isinstance(segments, list):
+        return mapped
+    for segment in segments:
+        if not isinstance(segment, dict):
+            continue
+        try:
+            start = float(segment.get("start", 0.0)) + offset
+            end = float(segment.get("end", 0.0)) + offset
+        except (TypeError, ValueError):
+            continue
+        mapped.append(
+            {
+                "id": segment.get("id"),
+                "start": start,
+                "end": end,
+                "text": (segment.get("text") or "").strip(),
+            }
+        )
+    return mapped
+
+
 def _transcribe_file(
     audio_path: Path,
     *,
@@ -53,7 +77,7 @@ def _transcribe_file(
     logger.info("OpenAI upload size=%.2fMB", size_mb)
 
     headers = {"Authorization": f"Bearer {settings.ORYN_WHISPER_KEY}"}
-    data = {"model": OPENAI_MODEL}
+    data = {"model": OPENAI_MODEL, "response_format": OPENAI_RESPONSE_FORMAT}
     if language:
         data["language"] = language
     if prompt:
@@ -63,6 +87,7 @@ def _transcribe_file(
     max_retries = 4
     backoff = 1.5
 
+    logger.info("OpenAI request response_format=%s", OPENAI_RESPONSE_FORMAT)
     for attempt in range(max_retries):
         try:
             with audio_path.open("rb") as f:
@@ -136,8 +161,8 @@ def _chunk_audio(
     duration: float,
     chunk_seconds: int,
     logger: logging.Logger,
-) -> list[Path]:
-    chunks: list[Path] = []
+) -> list[tuple[Path, float]]:
+    chunks: list[tuple[Path, float]] = []
     start = 0.0
     index = 0
     while start < duration:
@@ -162,7 +187,7 @@ def _chunk_audio(
         ]
         logger.info("OpenAI chunking: start=%.2fs duration=%.2fs", start, chunk_seconds)
         _run_ffmpeg(cmd)
-        chunks.append(chunk_path)
+        chunks.append((chunk_path, start))
         start += chunk_seconds
         index += 1
     return chunks
@@ -179,6 +204,7 @@ def transcribe_with_openai(
     upload_path = audio_path
     reencoded_path: Path | None = None
     chunk_paths: list[Path] = []
+    start_time = time.monotonic()
 
     try:
         if upload_path.stat().st_size > MAX_UPLOAD_BYTES:
@@ -187,12 +213,24 @@ def transcribe_with_openai(
             upload_path = reencoded_path
 
         if upload_path.stat().st_size <= MAX_UPLOAD_BYTES:
-            return _transcribe_file(
+            payload = _transcribe_file(
                 upload_path,
                 language=language,
                 prompt=prompt,
                 logger=log,
             )
+            segments = _map_openai_segments(payload.get("segments"))
+            log.info("OpenAI segments_count=%s", len(segments))
+            duration = payload.get("duration")
+            elapsed = time.monotonic() - start_time
+            return {
+                "text": payload.get("text"),
+                "segments": segments,
+                "durationSeconds": duration,
+                "duration": duration,
+                "provider": "openai",
+                "elapsed": elapsed,
+            }
 
         duration = get_duration_seconds(upload_path, logger=log)
         if duration is None:
@@ -200,16 +238,18 @@ def transcribe_with_openai(
         if duration is None:
             raise OpenAIWhisperError("Audio too large and duration probe failed")
 
-        chunk_paths = _chunk_audio(
+        chunk_info = _chunk_audio(
             upload_path,
             duration=duration,
             chunk_seconds=DEFAULT_CHUNK_SECONDS,
             logger=log,
         )
+        chunk_paths = [path for path, _ in chunk_info]
         parts: list[str] = []
-        for chunk in chunk_paths:
+        all_segments: list[dict] = []
+        for chunk_path, offset in chunk_info:
             payload = _transcribe_file(
-                chunk,
+                chunk_path,
                 language=language,
                 prompt=prompt,
                 logger=log,
@@ -217,7 +257,19 @@ def transcribe_with_openai(
             chunk_text = payload.get("text") or payload.get("transcript") or payload.get("transcriptText")
             if chunk_text:
                 parts.append(chunk_text.strip())
-        return {"text": " ".join(p for p in parts if p)}
+            chunk_segments = _map_openai_segments(payload.get("segments"), offset=offset)
+            if chunk_segments:
+                all_segments.extend(chunk_segments)
+        log.info("OpenAI segments_count=%s", len(all_segments))
+        elapsed = time.monotonic() - start_time
+        return {
+            "text": " ".join(p for p in parts if p),
+            "segments": all_segments,
+            "durationSeconds": duration,
+            "duration": duration,
+            "provider": "openai",
+            "elapsed": elapsed,
+        }
     finally:
         if reencoded_path and reencoded_path.exists():
             try:

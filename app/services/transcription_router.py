@@ -27,6 +27,9 @@ def route_transcription(
     if duration is None:
         log.warning("Router decision: LOCAL duration=unknown probe_failed")
         result = transcribe_audio(audio_path)
+        elapsed = time.monotonic() - start
+        result.setdefault("provider", "local")
+        result.setdefault("elapsed", elapsed)
         return result
 
     if duration < 90:
@@ -46,4 +49,6 @@ def route_transcription(
         result["durationSeconds"] = duration
     elapsed = time.monotonic() - start
     log.info("Transcription completed: provider=%s elapsed=%.2fs", provider, elapsed)
+    result.setdefault("provider", provider)
+    result.setdefault("elapsed", elapsed)
     return result
