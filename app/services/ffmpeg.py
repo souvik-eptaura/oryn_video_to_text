@@ -8,7 +8,7 @@ class FfmpegError(RuntimeError):
     pass
 
 
-def extract_audio(input_path: Path, output_path: Path, timeout_sec: int = 120) -> None:
+def extract_audio(input_path: Path, output_path: Path, timeout_sec: int = 450) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         "ffmpeg",

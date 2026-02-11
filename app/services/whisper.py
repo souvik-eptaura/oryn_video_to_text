@@ -14,7 +14,7 @@ class WhisperError(RuntimeError):
 
 def transcribe_audio(audio_path: Path) -> Dict[str, Any]:
     settings = get_settings()
-    timeout = httpx.Timeout(120.0)
+    timeout = httpx.Timeout(connect=30.0, read=900.0, write=300.0, pool=30.0)
 
     with audio_path.open("rb") as f:
         files = {"file": (audio_path.name, f, "audio/mpeg")}
