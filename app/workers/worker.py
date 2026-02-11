@@ -13,7 +13,8 @@ from app.jobs.lease import acquire_lease
 from app.services.downloader import DownloadError, download_instagram
 from app.services.ffmpeg import FfmpegError, extract_audio
 from app.services.firestore import workspace_job_ref, workspace_reel_ref
-from app.services.whisper import WhisperError, transcribe_audio
+from app.services.transcription_router import route_transcription
+from app.services.whisper import WhisperError
 from app.utils.logging import get_logger, setup_logging
 from app.utils.time import utc_now
 
@@ -66,8 +67,12 @@ def process_job(job_id: str, workspace_id: str) -> None:
         logger.info("Extracting audio")
         extract_audio(video_path, audio_path)
 
-        logger.info("Calling Whisper")
-        whisper_response = transcribe_audio(audio_path)
+        logger.info("Routing transcription")
+        whisper_response = route_transcription(
+            video_path,
+            audio_path,
+            logger=logger,
+        )
 
         transcript_text = whisper_response.get("text") or whisper_response.get("transcript")
         segments = whisper_response.get("segments")

@@ -23,6 +23,7 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = Field(default="redis://redis:6379/0")
     WHISPER_URL: str = Field(default="http://whisper-lb:8000/transcribe")
+    ORYN_WHISPER_KEY: Optional[str] = Field(default=None)
     TMP_DIR: str = Field(default="/tmp")
 
     MAX_ATTEMPTS: int = Field(default=3)

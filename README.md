@@ -99,7 +99,26 @@ docker logs -f oryn_video_to_text-worker-1
 ## Notes
 
 - Whisper load balancer URL is configured via `WHISPER_URL`.
+- Hybrid routing: videos shorter than 90 seconds use local Whisper, videos 90 seconds or longer use OpenAI Whisper via `ORYN_WHISPER_KEY`.
 - Firestore is the system of record.
 - Videos/audio are stored only in `/tmp` and removed after processing.
 - If a reel already has `transcriptText`, the job is marked `completed` immediately.
 - Nginx serves a self-signed certificate by default. Replace with a real cert for production.
+
+## Hybrid Transcription
+
+### Required Env
+
+- `ORYN_WHISPER_KEY` for OpenAI Whisper (used when duration >= 90s)
+- `WHISPER_URL` for local Whisper load balancer (used when duration < 90s or duration probe fails)
+
+### Local Test Checklist
+
+1. Short video (<90s)
+2. Long video (>=90s)
+3. Missing `ORYN_WHISPER_KEY` should fail jobs cleanly on long videos
+
+Expected logs include:
+
+- `Router decision: LOCAL|OPENAI duration=...`
+- `OpenAI upload size=...MB`
